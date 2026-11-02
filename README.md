@@ -4,6 +4,12 @@
 
 > 演示模型：基于示例系数的 logistic 回归，未用真实数据训练，不构成医学诊断。
 
+## 在线地址
+
+https://pandaq66.github.io/ad-risk-demo/
+
+> GitHub Pages 托管；推送 `main` 分支后自动更新。
+
 ## 打开方式
 
 - 直接双击 `index.html`，用浏览器打开即可，无需安装、无需联网。
