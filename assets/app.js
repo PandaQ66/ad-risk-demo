@@ -27,13 +27,31 @@
   var patientView = $('#patientView');
   var clinicianView = $('#clinicianView');
 
+  var LABS = [
+    { g: '血常规', k: 'lab_wbc', n: '白细胞计数', u: '×10⁹/L', ph: '3.5–9.5', step: '0.1' },
+    { g: '血常规', k: 'lab_rbc', n: '红细胞计数', u: '×10¹²/L', ph: '3.8–5.8', step: '0.01' },
+    { g: '血常规', k: 'lab_hct', n: '红细胞压积', u: '%', ph: '35–50', step: '0.1' },
+    { g: '血常规', k: 'lab_hgb', n: '血红蛋白', u: 'g/L', ph: '115–175', step: '1' },
+    { g: '血常规', k: 'lab_plt', n: '血小板计数', u: '×10⁹/L', ph: '125–350', step: '1' },
+    { g: '代谢', k: 'lab_glu', n: '空腹血糖', u: 'mmol/L', ph: '3.9–6.1', step: '0.1' },
+    { g: '代谢', k: 'lab_tc', n: '总胆固醇 TC', u: 'mmol/L', ph: '< 5.2', step: '0.01' },
+    { g: '代谢', k: 'lab_ldl', n: 'LDL-C', u: 'mmol/L', ph: '< 3.4', step: '0.01' },
+    { g: '甲状腺与营养', k: 'lab_tsh', n: 'TSH', u: 'mIU/L', ph: '0.27–4.2', step: '0.01' },
+    { g: '甲状腺与营养', k: 'lab_b12', n: '维生素 B12', u: 'pg/mL', ph: '200–900', step: '1' },
+    { g: '甲状腺与营养', k: 'lab_fol', n: '叶酸', u: 'ng/mL', ph: '3.0–20', step: '0.1' },
+    { g: '甲状腺与营养', k: 'lab_hcy', n: '同型半胱氨酸', u: 'μmol/L', ph: '5–15', step: '0.1' }
+  ];
+  var LAB_KEYS = LABS.map(function (l) { return l.k; });
+
   function blank() {
-    return {
+    var s = {
       age: null, sex: '', edu: '', family: '',
       mmse: null, moca: null,
       apoe: 'unknown', hippo: 'unknown', pet: 'unknown', ptau: 'unknown',
       bmi: null, htn: '', dm: '', smoke: ''
     };
+    LAB_KEYS.forEach(function (k) { s[k] = null; });
+    return s;
   }
 
   var state = { patient: blank(), clinician: blank() };
@@ -138,6 +156,17 @@
       items.push({ n: '海马体积（MRI）', t: '影像 · MAR', l: 'scale', d: 'MICE 插补，或按未检查处理并加宽区间。' });
     }
 
+    var filledLabs = 0;
+    LAB_KEYS.forEach(function (k) { if (s[k] != null) filledLabs += 1; });
+    if (filledLabs < LAB_KEYS.length) {
+      items.push({
+        n: '实验室检查（' + (LAB_KEYS.length - filledLabs) + ' / ' + LAB_KEYS.length + ' 未录入）',
+        t: 'MAR · 可逆因素',
+        l: 'scale',
+        d: '不插补；B12、叶酸、TSH、同型半胱氨酸建议补查，其余项目影响较小。'
+      });
+    }
+
     if (opts && opts.low) {
       var low = [];
       if (s.bmi == null) low.push('BMI');
@@ -150,6 +179,164 @@
     }
 
     return items;
+  }
+
+  /* ---------------------------------------------------------- labs */
+  function labCount(s) {
+    var n = 0;
+    LAB_KEYS.forEach(function (k) { if (s[k] != null) n += 1; });
+    return n;
+  }
+
+  function labFlags(s) {
+    var out = [];
+    var male = s.sex === 'male';
+
+    function add(k, name, unit, dir, advice, p) {
+      var v = s[k];
+      if (v == null || !isFinite(v)) return;
+      out.push({
+        k: k, name: name, unit: unit, dir: dir,
+        tag: dir === 'low' ? '偏低' : '偏高',
+        value: v, advice: advice, p: p
+      });
+    }
+
+    var v;
+
+    v = s.lab_b12;
+    if (v != null && v < 200) add('lab_b12', '维生素 B12', 'pg/mL', 'low', '可能与认知下降相关，建议复查并评估补充。', 1);
+
+    v = s.lab_fol;
+    if (v != null && v < 3.0) add('lab_fol', '叶酸', 'ng/mL', 'low', '建议补充叶酸并复查。', 2);
+
+    v = s.lab_tsh;
+    if (v != null && v > 4.2) add('lab_tsh', 'TSH', 'mIU/L', 'high', '提示甲状腺功能减退可能，建议内分泌科就诊。', 3);
+    if (v != null && v < 0.27) add('lab_tsh', 'TSH', 'mIU/L', 'low', '建议内分泌科评估甲状腺功能。', 3);
+
+    v = s.lab_hcy;
+    if (v != null && v > 15) add('lab_hcy', '同型半胱氨酸', 'μmol/L', 'high', '与血管和认知风险相关，建议补充叶酸/B12 后复查。', 4);
+
+    v = s.lab_hgb;
+    if (v != null && v < (male ? 130 : 115)) add('lab_hgb', '血红蛋白', 'g/L', 'low', '提示贫血，建议查明原因（营养、慢性病、消化道失血等）。', 5);
+
+    v = s.lab_glu;
+    if (v != null && v > 6.1) add('lab_glu', '空腹血糖', 'mmol/L', 'high', '建议复查糖化血红蛋白，排查糖尿病。', 6);
+
+    v = s.lab_ldl;
+    if (v != null && v > 3.4) add('lab_ldl', 'LDL-C', 'mmol/L', 'high', '建议控制饮食并在医生指导下管理血脂。', 7);
+
+    v = s.lab_tc;
+    if (v != null && v > 5.2) add('lab_tc', '总胆固醇', 'mmol/L', 'high', '建议饮食控制并评估心血管风险。', 8);
+
+    v = s.lab_plt;
+    if (v != null && (v < 125 || v > 350)) add('lab_plt', '血小板计数', '×10⁹/L', v < 125 ? 'low' : 'high', '建议复查，必要时血液科就诊。', 9);
+
+    v = s.lab_wbc;
+    if (v != null && (v < 3.5 || v > 9.5)) add('lab_wbc', '白细胞计数', '×10⁹/L', v < 3.5 ? 'low' : 'high', '建议结合感染或炎症情况复查。', 10);
+
+    v = s.lab_hct;
+    if (v != null && v < (male ? 40 : 35)) add('lab_hct', '红细胞压积', '%', 'low', '建议结合血红蛋白与铁代谢检查。', 11);
+
+    v = s.lab_rbc;
+    if (v != null && v < (male ? 4.3 : 3.8)) add('lab_rbc', '红细胞计数', '×10¹²/L', 'low', '建议结合血红蛋白与铁代谢检查。', 12);
+
+    out.sort(function (a, b) { return a.p - b.p; });
+    return out;
+  }
+
+  function fmtLab(v) {
+    return String(Math.round(Number(v) * 100) / 100);
+  }
+
+  function renderLabs(container, prefix) {
+    if (!container) return;
+    var html = '';
+    var last = '';
+    LABS.forEach(function (l) {
+      if (l.g !== last) {
+        html += '<div class="lab-group">' + l.g + '</div>';
+        last = l.g;
+      }
+      var id = prefix + '-' + l.k;
+      html += '<div class="field lab-field">' +
+        '<label for="' + id + '">' + l.n + ' <span class="unit">' + l.u + '</span></label>' +
+        '<input id="' + id + '" data-field="' + l.k + '" type="number" min="0" step="' + l.step + '" inputmode="decimal" placeholder="' + l.ph + '">' +
+        '</div>';
+    });
+    container.innerHTML = html;
+  }
+
+  function updateLabMeta() {
+    var p = $('#pLabMeta');
+    var c = $('#cLabMeta');
+    if (p) p.textContent = labCount(state.patient) + ' / ' + LABS.length + ' 已填';
+    if (c) c.textContent = '可选 · ' + labCount(state.clinician) + ' / ' + LABS.length + ' 已填';
+  }
+
+  function renderPatientLabs(s) {
+    var section = $('#pLabSection');
+    var box = $('#pLabFlags');
+    if (!section || !box) return;
+
+    if (labCount(s) === 0) {
+      section.hidden = true;
+      box.innerHTML = '';
+      return;
+    }
+    section.hidden = false;
+
+    var flags = labFlags(s);
+    if (!flags.length) {
+      box.innerHTML = '<li class="flag-ok"><svg class="icon"><use href="#i-check"/></svg>' +
+        '<span>已录入的实验室指标未见明显异常。</span></li>';
+      return;
+    }
+
+    var shown = flags.slice(0, 4);
+    box.innerHTML = shown.map(function (f) {
+      return '<li class="flag-item">' +
+        '<div class="flag-top"><b>' + esc(f.name) + '</b>' +
+        '<span class="flag-val">' + esc(fmtLab(f.value)) + ' ' + esc(f.unit) + '</span>' +
+        '<span class="flag-tag ' + f.dir + '">' + f.tag + '</span></div>' +
+        '<p>' + esc(f.advice) + '</p></li>';
+    }).join('');
+
+    if (flags.length > 4) {
+      box.innerHTML += '<li class="flag-more">另有 ' + (flags.length - 4) + ' 项异常，建议携带化验单到记忆门诊评估。</li>';
+    }
+  }
+
+  function renderClinicianLabs(s) {
+    var box = $('#cLabFlags');
+    if (!box) return;
+
+    if (labCount(s) === 0) {
+      box.hidden = true;
+      box.innerHTML = '';
+      return;
+    }
+    box.hidden = false;
+
+    var flags = labFlags(s);
+    if (!flags.length) {
+      box.innerHTML = '<div class="flag-ok"><svg class="icon"><use href="#i-check"/></svg>' +
+        '<span>已录入的实验室指标未见明显异常。</span></div>';
+      return;
+    }
+
+    var shown = flags.slice(0, 6);
+    box.innerHTML = '<div class="lab-flag-head">异常提示</div>' + shown.map(function (f) {
+      return '<div class="mini-flag">' +
+        '<span class="flag-tag ' + f.dir + '">' + f.tag + '</span>' +
+        '<b>' + esc(f.name) + '</b>' +
+        '<span class="val">' + esc(fmtLab(f.value)) + ' ' + esc(f.unit) + '</span>' +
+        '<span>' + esc(f.advice) + '</span></div>';
+    }).join('');
+
+    if (flags.length > 6) {
+      box.innerHTML += '<div class="flag-more">另有 ' + (flags.length - 6) + ' 项异常，请结合化验单评估。</div>';
+    }
   }
 
   /* ---------------------------------------------------------- helpers */
@@ -219,6 +406,7 @@
     $('#pDesc').textContent = meta.patient;
     $('#pRange').textContent = '可能范围 ' + r.lo + '% – ' + r.hi + '%（含未完成检查的不确定性）';
     $('#pAdvice').innerHTML = adviceHtml(patientAdvice(state.patient));
+    renderPatientLabs(state.patient);
   }
 
   function validateStep1() {
@@ -335,6 +523,8 @@
 
     renderExam(s);
     renderMissing(s);
+    updateLabMeta();
+    renderClinicianLabs(s);
 
     if (!r) {
       $('#cRingNum').textContent = '--';
@@ -404,6 +594,7 @@
     patientView.addEventListener(evt, function (e) {
       if (!e.target.matches('[data-field]')) return;
       sync('patient');
+      updateLabMeta();
       clearInvalid(e.target);
     });
     clinicianView.addEventListener(evt, function (e) {
@@ -487,6 +678,10 @@
 
   if (params.get('static')) document.body.classList.add('no-anim');
 
+  renderLabs($('#pLabs'), 'p');
+  renderLabs($('#cLabs'), 'c');
+  updateLabMeta();
+
   setMode(initial, false);
   renderClinician();
 
@@ -494,7 +689,10 @@
     fillForm(clinicianView, {
       age: 76, sex: 'male', edu: '6', family: 'yes',
       mmse: 23, moca: 19, apoe: 'two', hippo: 'moderate',
-      pet: 'unknown', ptau: 'positive', bmi: 24.5, htn: 'yes', dm: 'no', smoke: 'quit'
+      pet: 'unknown', ptau: 'positive', bmi: 24.5, htn: 'yes', dm: 'no', smoke: 'quit',
+      lab_wbc: 6.2, lab_rbc: 4.5, lab_hct: 42, lab_hgb: 128, lab_plt: 210,
+      lab_glu: 6.8, lab_tc: 5.6, lab_ldl: 3.9,
+      lab_tsh: 5.6, lab_b12: 180, lab_fol: 4.2, lab_hcy: 18.5
     });
     sync('clinician');
     renderClinician();
@@ -502,7 +700,10 @@
     fillForm(clinicianView, {
       age: 68, sex: 'female', edu: '15', family: 'no',
       mmse: 29, moca: 27, apoe: 'none', hippo: 'normal',
-      pet: 'negative', ptau: 'negative', bmi: 22, htn: 'no', dm: 'no', smoke: 'no'
+      pet: 'negative', ptau: 'negative', bmi: 22, htn: 'no', dm: 'no', smoke: 'no',
+      lab_wbc: 5.5, lab_rbc: 4.6, lab_hct: 43, lab_hgb: 140, lab_plt: 230,
+      lab_glu: 5.2, lab_tc: 4.6, lab_ldl: 2.8,
+      lab_tsh: 2.1, lab_b12: 450, lab_fol: 8.5, lab_hcy: 9.8
     });
     sync('clinician');
     renderClinician();
@@ -510,12 +711,23 @@
     fillForm(patientView, {
       age: 72, sex: 'female', edu: '9', family: 'no',
       mmse: 25, moca: 21, apoe: 'one', hippo: 'mild',
-      pet: 'unknown', ptau: 'unknown'
+      pet: 'unknown', ptau: 'unknown',
+      lab_wbc: 6.0, lab_rbc: 4.4, lab_hct: 40, lab_hgb: 130, lab_plt: 220,
+      lab_glu: 5.4, lab_tc: 4.8, lab_ldl: 3.0,
+      lab_tsh: 2.4, lab_b12: 180, lab_fol: 4.2, lab_hcy: 18.5
     });
     sync('patient');
+    updateLabMeta();
     setMode('patient', false);
     goStep(3);
   }
+
+  if (params.get('labs')) {
+    var labDetails = $('#pLabDetails');
+    if (labDetails) labDetails.open = true;
+  }
+
+  if (!demo && params.get('step') === '2') goStep(2);
 
   if (params.get('method')) {
     var d = $('#methodDialog');

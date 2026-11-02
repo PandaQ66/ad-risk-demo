@@ -176,6 +176,19 @@
             </div>
           </div>
         </div>
+
+        <details class="lab-details" id="pLabDetails">
+          <summary>
+            <span class="lab-sum-title"><svg class="icon"><use href="#i-activity"/></svg>实验室检查（可选）</span>
+            <span class="lab-sum-meta" id="pLabMeta">0 / 12 已填</span>
+            <svg class="icon lab-chev"><use href="#i-arrow"/></svg>
+          </summary>
+          <div class="lab-inner">
+            <p class="lab-note">有近期化验单可填写；没有可跳过，不影响主评估。参考范围因实验室而异，异常提示仅用于筛查。</p>
+            <div class="lab-grid" id="pLabs"></div>
+          </div>
+        </details>
+
         <div class="panel-note">
           <svg class="icon"><use href="#i-info"/></svg>
           未完成的检查不会被「猜」成一个具体数值，而是按缺失机制处理，并体现在风险区间中。
@@ -210,6 +223,13 @@
           <div class="divider"></div>
           <h3 class="subhead">下一步建议</h3>
           <ul class="advice" id="pAdvice"></ul>
+
+          <div class="lab-section" id="pLabSection" hidden>
+            <h3 class="subhead">实验室提示</h3>
+            <p class="lab-section-note">实验室检查用于排查可逆原因与血管危险因素，不改变上面的风险点估计。</p>
+            <ul class="flag-list" id="pLabFlags"></ul>
+          </div>
+
           <div class="notice">
             <svg class="icon"><use href="#i-info"/></svg>
             <span>本结果由演示模型生成，仅用于科研与教学，不构成医学诊断。如有记忆减退，请到记忆门诊就诊。</span>
@@ -366,6 +386,16 @@
 
         <div class="card">
           <div class="card-head">
+            <h3>实验室检查</h3>
+            <span class="hint" id="cLabMeta">可选 · 0 / 12 已填</span>
+          </div>
+          <div class="lab-grid c-lab-grid" id="cLabs"></div>
+          <div class="lab-flags-inline" id="cLabFlags" hidden></div>
+          <p class="footnote">参考范围因实验室而异；异常提示仅用于筛查，不替代诊断。</p>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
             <h3>检查完成情况</h3>
             <span class="hint">用于生成检查建议</span>
           </div>
@@ -467,7 +497,7 @@
     <span class="mech ma"><b>MAR</b> 只依赖已观测变量</span>
     <span class="mech mn"><b>MNAR</b> 依赖未观测值本身</span>
   </div>
-  <p class="modal-note"><b>本演示中的处理：</b>PET / p-tau217 / APOE 缺失不做单点插补，按 MNAR 加宽风险区间；MMSE / MoCA 缺失按 MAR 处理；BMI、高血压、糖尿病等低影响变量缺失直接忽略。</p>
+  <p class="modal-note"><b>本演示中的处理：</b>PET / p-tau217 / APOE 缺失不做单点插补，按 MNAR 加宽风险区间；MMSE / MoCA 缺失按 MAR 处理；实验室检查按 MAR 处理、不插补，B12 / 叶酸 / TSH / 同型半胱氨酸异常仅提示补查；BMI、高血压、糖尿病等低影响变量缺失直接忽略。</p>
 </dialog>
 
 <script src="assets/app.js"></script>
